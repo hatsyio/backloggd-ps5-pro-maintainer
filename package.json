@@ -1,0 +1,46 @@
+{
+  "name": "backloggd-ps5-pro-maintainer",
+  "version": "1.0.0",
+  "description": "Automated script to sync PS5 Pro enhanced games between PlayStation Store and Backloggd",
+  "main": "dist/index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "clean": "rm -rf dist",
+    "debug": "PWDEBUG=1 tsx src/index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hatsyio/backloggd-ps5-pro-maintainer.git"
+  },
+  "keywords": ["backloggd", "ps5", "playstation", "scraper"],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/hatsyio/backloggd-ps5-pro-maintainer/issues"
+  },
+  "homepage": "https://github.com/hatsyio/backloggd-ps5-pro-maintainer#readme",
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "playwright": "^1.56.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.12",
+    "@typescript-eslint/eslint-plugin": "^8.46.2",
+    "@typescript-eslint/parser": "^8.46.2",
+    "eslint": "^9.38.0",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-prettier": "^5.5.4",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
