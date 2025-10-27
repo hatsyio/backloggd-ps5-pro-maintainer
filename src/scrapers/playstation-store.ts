@@ -20,6 +20,7 @@
 import { chromium, Browser, Page } from 'playwright';
 import { Game, ScraperResult } from '../types/game';
 import { logger } from '../services/logger';
+import { extractTotalCount, detectPaginationType, navigateToNextPage } from './pagination-helpers';
 
 export async function scrapePlayStationStore(): Promise<ScraperResult> {
   const browser: Browser = await chromium.launch({
@@ -59,8 +60,8 @@ export async function scrapePlayStationStore(): Promise<ScraperResult> {
     }
 
     // Take a screenshot for debugging
-    await page.screenshot({ path: 'ps-store-debug.png', fullPage: true });
-    logger.info('Screenshot saved to ps-store-debug.png');
+    await page.screenshot({ path: 'debug/ps-store-debug.png', fullPage: true });
+    logger.info('Screenshot saved to debug/ps-store-debug.png');
 
     // Wait for page content to load - try multiple selectors
     try {
@@ -73,69 +74,110 @@ export async function scrapePlayStationStore(): Promise<ScraperResult> {
       await page.waitForTimeout(5000);
     }
 
-    // Scroll to load all games (infinite scroll)
-    await autoScroll(page);
+    // Extract total count from pagination text
+    const totalGames = await extractTotalCount(page);
 
-    // Extract game data - find all links to concept pages
-    const games: Game[] = await page.$$eval('a[href*="/concept/"]', (links) => {
-      const gamesList: Array<{ title: string; platform: string; url: string }> = [];
-      const seenUrls = new Set<string>();
+    // Initialize collection
+    const allGames: Game[] = [];
+    const seenUrls = new Set<string>();
+    let currentPage = 1;
+    let hasNextPage = true;
 
-      links.forEach((link) => {
-        const url = link.getAttribute('href') || '';
-        if (seenUrls.has(url)) return; // Skip duplicates
-        seenUrls.add(url);
+    // Detect pagination strategy
+    const paginationStrategy = await detectPaginationType(page);
 
-        // Get text content and clean it up
-        const textContent = link.textContent || '';
-        const lines = textContent
-          .split('\n')
-          .map((l: string) => l.trim())
-          .filter((l: string) => l.length > 0);
+    // Pagination loop
+    while (hasNextPage) {
+      logger.info(`Scraping PS Store page ${currentPage}...`);
 
-        // Find the game title - it's usually the first substantial text that's not a price, badge, or image tag
-        let title = '';
-        for (const line of lines) {
-          // Skip if it looks like a price, discount, or badge
-          if (
-            line.includes('€') ||
-            line.includes('%') ||
-            line.match(/^[0-9,. ]+$/) ||
-            line.toLowerCase().includes('precio') ||
-            line.toLowerCase().includes('ahorra') ||
-            line.toLowerCase().includes('<img') ||
-            line.length < 3 ||
-            line.length > 100 ||
-            line === 'Gratis' ||
-            line === 'Extra' ||
-            line === 'Premium' ||
-            line.toLowerCase() === 'prueba de juego'
-          ) {
-            continue;
+      // Extract games from current page
+      const gamesOnPage = await page.$$eval('a[href*="/concept/"]', (links) => {
+        const gamesList: Array<{ title: string; platform: string; url: string }> = [];
+
+        links.forEach((link) => {
+          const url = link.getAttribute('href') || '';
+
+          // Get text content and clean it up
+          const textContent = link.textContent || '';
+          const lines = textContent
+            .split('\n')
+            .map((l: string) => l.trim())
+            .filter((l: string) => l.length > 0);
+
+          // Find the game title
+          let title = '';
+          for (const line of lines) {
+            if (
+              line.includes('€') ||
+              line.includes('%') ||
+              line.match(/^[0-9,. ]+$/) ||
+              line.toLowerCase().includes('precio') ||
+              line.toLowerCase().includes('ahorra') ||
+              line.toLowerCase().includes('<img') ||
+              line.length < 3 ||
+              line.length > 100 ||
+              line === 'Gratis' ||
+              line === 'Extra' ||
+              line === 'Premium' ||
+              line.toLowerCase() === 'prueba de juego'
+            ) {
+              continue;
+            }
+
+            title = line;
+            break;
           }
 
-          title = line;
-          break;
-        }
+          if (title && url) {
+            gamesList.push({
+              title: title.trim(),
+              platform: 'PS5 Pro',
+              url: url.startsWith('http') ? url : `https://store.playstation.com${url}`,
+            });
+          }
+        });
 
-        if (title && url) {
-          gamesList.push({
-            title: title.trim(),
-            platform: 'PS5 Pro',
-            url: url.startsWith('http') ? url : `https://store.playstation.com${url}`,
-          });
-        }
+        return gamesList;
       });
 
-      return gamesList;
-    });
+      // Filter duplicates
+      const newGames = gamesOnPage.filter((game) => {
+        if (seenUrls.has(game.url)) return false;
+        seenUrls.add(game.url);
+        return true;
+      });
 
-    logger.info(`Extracted ${games.length} games from PlayStation Store`);
+      allGames.push(...newGames);
+      logger.info(
+        `Extracted ${newGames.length} new games from page ${currentPage} (total: ${allGames.length}${totalGames !== Infinity ? `/${totalGames}` : ''})`
+      );
 
-    // Filter out empty titles
-    const validGames = games.filter((game) => game.title !== '');
+      // Check if we've collected all games
+      if (totalGames !== Infinity && allGames.length >= totalGames) {
+        hasNextPage = false;
+        break;
+      }
 
-    logger.info(`Scraped ${validGames.length} games from PlayStation Store`);
+      // Navigate to next page
+      hasNextPage = await navigateToNextPage(page, paginationStrategy, currentPage);
+
+      if (hasNextPage) {
+        await page.waitForTimeout(2000); // Rate limiting
+        currentPage++;
+      }
+
+      // Safety check: max 50 pages
+      if (currentPage > 50) {
+        logger.warn('Reached maximum page limit (50), stopping');
+        break;
+      }
+    }
+
+    const validGames = allGames.filter((game) => game.title !== '');
+
+    logger.info(
+      `Scraped ${validGames.length} games from PlayStation Store across ${currentPage} pages`
+    );
 
     return {
       games: validGames,
@@ -148,27 +190,4 @@ export async function scrapePlayStationStore(): Promise<ScraperResult> {
   } finally {
     await browser.close();
   }
-}
-
-async function autoScroll(page: Page): Promise<void> {
-  await page.evaluate(async () => {
-    await new Promise<void>((resolve) => {
-      let totalHeight = 0;
-      const distance = 100;
-      const timer = setInterval(() => {
-        // @ts-ignore - Running in browser context
-        // eslint-disable-next-line no-undef
-        const scrollHeight = document.body.scrollHeight;
-        // @ts-ignore - Running in browser context
-        // eslint-disable-next-line no-undef
-        window.scrollBy(0, distance);
-        totalHeight += distance;
-
-        if (totalHeight >= scrollHeight) {
-          clearInterval(timer);
-          resolve();
-        }
-      }, 100);
-    });
-  });
 }

@@ -13,6 +13,7 @@
 import { chromium, Browser, Page } from 'playwright';
 import { Game, ScraperResult } from '../types/game';
 import { logger } from '../services/logger';
+import { extractTotalCount, detectPaginationType, navigateToNextPage } from './pagination-helpers';
 
 export async function scrapeBackloggdList(): Promise<ScraperResult> {
   const browser: Browser = await chromium.launch({
@@ -31,31 +32,78 @@ export async function scrapeBackloggdList(): Promise<ScraperResult> {
     // Wait for list to load - Backloggd uses game-cover class for game tiles
     await page.waitForSelector('.game-cover', { timeout: 10000 });
 
-    // Check if there are multiple pages and scroll through them
-    await autoScroll(page);
+    // Extract total count from pagination text
+    const totalGames = await extractTotalCount(page);
 
-    // Extract games from list
-    const games: Game[] = await page.$$eval('.game-cover', (items) => {
-      return items.map((item) => {
-        const link = item.closest('a');
-        const title =
-          link?.getAttribute('title') || item.querySelector('img')?.getAttribute('alt') || '';
-        const url = link?.href || undefined;
-        const id = link?.href?.split('/').pop() || undefined;
+    // Initialize collection
+    const allGames: Game[] = [];
+    const seenUrls = new Set<string>();
+    let currentPage = 1;
+    let hasNextPage = true;
 
-        return {
-          title: title.trim(),
-          platform: 'PS5',
-          url,
-          id,
-        };
+    // Detect pagination strategy
+    const paginationStrategy = await detectPaginationType(page);
+
+    // Pagination loop
+    while (hasNextPage) {
+      logger.info(`Scraping Backloggd page ${currentPage}...`);
+
+      // Extract games from current page
+      const gamesOnPage: Game[] = await page.$$eval('.game-cover', (items) => {
+        return items.map((item) => {
+          const link = item.closest('a');
+          const title =
+            link?.getAttribute('title') || item.querySelector('img')?.getAttribute('alt') || '';
+          const url = link?.href || undefined;
+          const id = link?.href?.split('/').pop() || undefined;
+
+          return {
+            title: title.trim(),
+            platform: 'PS5',
+            url,
+            id,
+          };
+        });
       });
-    });
+
+      // Filter duplicates and empty titles
+      const newGames = gamesOnPage.filter((game) => {
+        if (game.title === '') return false;
+        if (game.url && seenUrls.has(game.url)) return false;
+        if (game.url) seenUrls.add(game.url);
+        return true;
+      });
+
+      allGames.push(...newGames);
+      logger.info(
+        `Extracted ${newGames.length} new games from page ${currentPage} (total: ${allGames.length}${totalGames !== Infinity ? `/${totalGames}` : ''})`
+      );
+
+      // Check if we've collected all games
+      if (totalGames !== Infinity && allGames.length >= totalGames) {
+        hasNextPage = false;
+        break;
+      }
+
+      // Navigate to next page
+      hasNextPage = await navigateToNextPage(page, paginationStrategy, currentPage);
+
+      if (hasNextPage) {
+        await page.waitForTimeout(2000); // Rate limiting
+        currentPage++;
+      }
+
+      // Safety check: max 50 pages
+      if (currentPage > 50) {
+        logger.warn('Reached maximum page limit (50), stopping');
+        break;
+      }
+    }
 
     // Filter out empty titles
-    const validGames = games.filter((game) => game.title !== '');
+    const validGames = allGames.filter((game) => game.title !== '');
 
-    logger.info(`Found ${validGames.length} games in Backloggd list`);
+    logger.info(`Found ${validGames.length} games in Backloggd list across ${currentPage} pages`);
 
     return {
       games: validGames,
@@ -68,27 +116,4 @@ export async function scrapeBackloggdList(): Promise<ScraperResult> {
   } finally {
     await browser.close();
   }
-}
-
-async function autoScroll(page: Page): Promise<void> {
-  await page.evaluate(async () => {
-    await new Promise<void>((resolve) => {
-      let totalHeight = 0;
-      const distance = 100;
-      const timer = setInterval(() => {
-        // @ts-ignore - Running in browser context
-        // eslint-disable-next-line no-undef
-        const scrollHeight = document.body.scrollHeight;
-        // @ts-ignore - Running in browser context
-        // eslint-disable-next-line no-undef
-        window.scrollBy(0, distance);
-        totalHeight += distance;
-
-        if (totalHeight >= scrollHeight) {
-          clearInterval(timer);
-          resolve();
-        }
-      }, 100);
-    });
-  });
 }
