@@ -22,30 +22,6 @@ Clair Obscur: Expedition 33
 Resident Evil 4
 Mortal Kombat 1
 Warframe
-MotoGP™25
-Marvel Rivals
-Marvel's Spider-Man 2
-Resident Evil Village
-Assassin’s Creed Shadows
-EA SPORTS FC™ 25
-Diablo® IV
-SILENT HILL 2
-DAYS GONE
-Apex Legends™
-Asphalt Legends Unite
-METAL GEAR SOLID Δ: SNAKE EATER
-Warhammer 40,000: Space Marine 2
-The Elder Scrolls Online
-Split Fiction
-Skull and Bones™
-EA SPORTS™ Madden NFL 26
-Horizon Forbidden West
-God of War Ragnarök
-Baldur's Gate 3
-Mafia: El Viejo Continente
-Farming Simulator 25
-Monster Hunter Wilds
-Gears of War: Reloaded
 Dead Island 2
 SILENT HILL f
 Black Myth: Wukong
@@ -192,3 +168,4 @@ Stunt Paradise
 Weed & Greed
 Zombie Derby
 Zombie Derby: Pixel Survival
+Battlefield™ REDSEC

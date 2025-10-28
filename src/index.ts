@@ -6,6 +6,7 @@ import { scrapeBackloggdList } from './scrapers/backloggd';
 import { compareGameLists } from './services/comparison';
 import { logger } from './services/logger';
 import { Game } from './types/game';
+import NotificationManager, { createNotificationConfig } from './services/notifications';
 
 /**
  * Saves game titles to a file in the debug folder
@@ -58,6 +59,18 @@ async function main() {
 
     // Step 4: Log results
     logger.logComparisonResults(comparisonResult);
+
+    // Step 5: Send notifications
+    logger.info('📢 Step 5: Sending notifications');
+    try {
+      const notificationConfig = createNotificationConfig();
+      const notificationManager = new NotificationManager(notificationConfig);
+      await notificationManager.sendNotifications(comparisonResult);
+    } catch (error) {
+      // Notifications are optional - don't fail the script if they fail
+      logger.warn('Notifications failed but script continues');
+      logger.error('Notification error', error);
+    }
 
     // Summary
     const hasChanges =
