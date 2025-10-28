@@ -1,8 +1,33 @@
 import 'dotenv/config';
+import { writeFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
 import { scrapePlayStationStore } from './scrapers/playstation-store';
 import { scrapeBackloggdList } from './scrapers/backloggd';
 import { compareGameLists } from './services/comparison';
 import { logger } from './services/logger';
+import { Game } from './types/game';
+
+/**
+ * Saves game titles to a file in the debug folder
+ */
+function saveTitlesToFile(games: Game[], filename: string): void {
+  try {
+    // Ensure debug directory exists
+    const debugDir = join(process.cwd(), 'debug');
+    mkdirSync(debugDir, { recursive: true });
+
+    // Extract titles and join with newlines
+    const titles = games.map(game => game.title).join('\n');
+
+    // Write to file
+    const filepath = join(debugDir, filename);
+    writeFileSync(filepath, titles, 'utf-8');
+
+    logger.info(`💾 Saved ${games.length} titles to ${filename}`);
+  } catch (error) {
+    logger.error(`Failed to save titles to ${filename}`, error);
+  }
+}
 
 async function main() {
   try {
@@ -14,6 +39,7 @@ async function main() {
     logger.success(
       `Scraped ${psStoreResult.games.length} games from PlayStation Store\n`
     );
+    saveTitlesToFile(psStoreResult.games, 'ps-store-titles.txt');
 
     // Step 2: Scrape Backloggd list
     logger.info('📥 Step 2: Scraping Backloggd list');
@@ -21,6 +47,7 @@ async function main() {
     logger.success(
       `Scraped ${backloggdResult.games.length} games from Backloggd\n`
     );
+    saveTitlesToFile(backloggdResult.games, 'backloggd-titles.txt');
 
     // Step 3: Compare lists (bidirectional)
     logger.info('🔍 Step 3: Performing bidirectional comparison');

@@ -52,7 +52,7 @@ export async function extractTotalCount(page: Page): Promise<number> {
  */
 export async function detectPaginationType(page: Page): Promise<'button' | 'url'> {
   const currentUrl = page.url();
-  
+
   // Check if URL has query parameter-based pagination
   if (currentUrl.includes('page=') || currentUrl.includes('offset=')) {
     logger.info('Detected URL-based pagination (query parameters)');
@@ -171,14 +171,14 @@ export async function navigateToNextPage(
     }
 
     try {
-      await page.goto(nextUrl, { 
-        waitUntil: 'domcontentloaded', 
-        timeout: 30000 
+      await page.goto(nextUrl, {
+        waitUntil: 'domcontentloaded',
+        timeout: 30000,
       });
-      
+
       // Wait for content to load
       await page.waitForTimeout(2000);
-      
+
       logger.info(`Navigated to next page via URL: ${nextUrl}`);
       return true;
     } catch (error) {

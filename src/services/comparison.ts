@@ -1,5 +1,7 @@
 import { Game, ComparisonResult } from '../types/game';
 import { logger } from './logger';
+import { titleMapper } from './title-mapper';
+import { manualAdditionsManager } from './manual-additions';
 
 /**
  * Performs bidirectional comparison of game lists
@@ -16,7 +18,9 @@ export function compareGameLists(psStoreGames: Game[], backloggdGames: Game[]): 
   const backloggdMap = new Map<string, Game>();
 
   psStoreGames.forEach((game) => {
-    psStoreMap.set(normalizeTitle(game.title), game);
+    // Apply title mapping: PS Store → Backloggd, then normalize
+    const mappedTitle = titleMapper.mapPsStoreToBackloggd(game.title);
+    psStoreMap.set(normalizeTitle(mappedTitle), game);
   });
 
   backloggdGames.forEach((game) => {
@@ -26,25 +30,31 @@ export function compareGameLists(psStoreGames: Game[], backloggdGames: Game[]): 
   // Find missing games (in PS Store but not in Backloggd)
   const gamesToAdd: Game[] = [];
   psStoreGames.forEach((game) => {
-    const normalized = normalizeTitle(game.title);
+    const mappedTitle = titleMapper.mapPsStoreToBackloggd(game.title);
+    const normalized = normalizeTitle(mappedTitle);
     if (!backloggdMap.has(normalized)) {
       gamesToAdd.push(game);
     }
   });
 
   // Find erroneous games (in Backloggd but not in PS Store)
+  // Exclude manually added games (PS5 enhanced games not in PS Store webpage)
   const gamesToRemove: Game[] = [];
   backloggdGames.forEach((game) => {
     const normalized = normalizeTitle(game.title);
     if (!psStoreMap.has(normalized)) {
-      gamesToRemove.push(game);
+      // Check if this game is manually added (should be kept)
+      if (!manualAdditionsManager.isManuallyAdded(game.title)) {
+        gamesToRemove.push(game);
+      }
     }
   });
 
   // Find correctly synced games
   const alreadyInSync: Game[] = [];
   psStoreGames.forEach((game) => {
-    const normalized = normalizeTitle(game.title);
+    const mappedTitle = titleMapper.mapPsStoreToBackloggd(game.title);
+    const normalized = normalizeTitle(mappedTitle);
     if (backloggdMap.has(normalized)) {
       alreadyInSync.push(game);
     }
