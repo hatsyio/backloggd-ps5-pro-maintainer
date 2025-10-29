@@ -21,7 +21,12 @@
     "type": "git",
     "url": "git+https://github.com/hatsyio/backloggd-ps5-pro-maintainer.git"
   },
-  "keywords": ["backloggd", "ps5", "playstation", "scraper"],
+  "keywords": [
+    "backloggd",
+    "ps5",
+    "playstation",
+    "scraper"
+  ],
   "author": "",
   "license": "MIT",
   "bugs": {
@@ -30,10 +35,13 @@
   "homepage": "https://github.com/hatsyio/backloggd-ps5-pro-maintainer#readme",
   "dependencies": {
     "dotenv": "^16.6.1",
-    "playwright": "^1.56.1"
+    "node-telegram-bot-api": "^0.66.0",
+    "playwright": "^1.56.1",
+    "twitter-api-v2": "^1.27.0"
   },
   "devDependencies": {
     "@types/node": "^22.18.12",
+    "@types/node-telegram-bot-api": "^0.64.12",
     "@typescript-eslint/eslint-plugin": "^8.46.2",
     "@typescript-eslint/parser": "^8.46.2",
     "eslint": "^9.38.0",

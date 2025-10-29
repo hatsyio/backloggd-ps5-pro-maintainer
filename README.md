@@ -12,6 +12,9 @@ This TypeScript-based tool automatically scrapes PS5 Pro enhanced games from the
 - **Bidirectional Comparison**: Identifies games to add and games to remove
 - **Title Mapping**: Handles game title variations between platforms (e.g., "Ghost of Yōtei" vs "Ghost of Yotei")
 - **Manual Additions**: Support for manually adding games not properly detected by the scraper
+- **Notification System**: Automated notifications via Telegram and Twitter
+  - **Telegram**: Sends summary reports to notify maintainers of changes
+  - **Twitter**: Creates individual posts for each new PS5 Pro enhanced game
 - **Debug Output**: Saves scraped titles to text files for verification
 - **Detailed Logging**: Comprehensive logging with color-coded console output
 
@@ -63,7 +66,40 @@ BACKLOGGD_LIST_URL=https://backloggd.com/u/Termeni/list/ps5-pro-enhanced-games/
 
 # Run browser in headless mode (true/false)
 HEADLESS_MODE=true
+
+# Telegram Notifications
+TELEGRAM_ENABLED=false
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_CHAT_ID=@your_channel_or_chat_id
+
+# Twitter Notifications
+TWITTER_ENABLED=false
+TWITTER_API_KEY=your_api_key_here
+TWITTER_API_SECRET=your_api_secret_here
+TWITTER_ACCESS_TOKEN=your_access_token_here
+TWITTER_ACCESS_SECRET=your_access_secret_here
+
+# Notification Settings
+NOTIFICATIONS_DRY_RUN=false
 ```
+
+### Notification Configuration
+
+The script supports automated notifications through Telegram and Twitter:
+
+**Telegram Configuration:**
+1. Create a bot using [@BotFather](https://t.me/botfather) on Telegram
+2. Get your bot token
+3. Get your chat ID (use [@userinfobot](https://t.me/userinfobot) or create a channel)
+4. Set `TELEGRAM_ENABLED=true` and add your credentials
+
+**Twitter Configuration:**
+1. Create a Twitter Developer account at [developer.twitter.com](https://developer.twitter.com)
+2. Create an app and generate API keys and access tokens
+3. Set `TWITTER_ENABLED=true` and add your credentials
+
+**Dry Run Mode:**
+Set `NOTIFICATIONS_DRY_RUN=true` to test notifications without actually sending them (useful for development).
 
 ## Usage
 
@@ -109,9 +145,13 @@ backloggd-ps5-pro-maintainer/
 │   │   ├── comparison.ts             # Game list comparison logic
 │   │   ├── logger.ts                 # Custom logging service
 │   │   ├── manual-additions.ts       # Manual additions handler
-│   │   └── title-mapper.ts           # Title mapping service
+│   │   ├── title-mapper.ts           # Title mapping service
+│   │   ├── notifications.ts          # Notification orchestrator
+│   │   ├── telegram.ts               # Telegram notification service
+│   │   └── twitter.ts                # Twitter notification service
 │   ├── types/
-│   │   └── game.ts                   # TypeScript type definitions
+│   │   ├── game.ts                   # TypeScript type definitions
+│   │   └── notifications.ts          # Notification type definitions
 │   └── index.ts                      # Main entry point
 ├── tests/                            # Test files
 ├── debug/                            # Debug output (generated)
@@ -130,6 +170,9 @@ backloggd-ps5-pro-maintainer/
    - Identifies games in PS Store but not in Backloggd (to add)
    - Identifies games in Backloggd but not in PS Store (to remove)
 6. **Generate Report**: Outputs a detailed comparison report with games to add/remove
+7. **Send Notifications** (if enabled):
+   - **Twitter**: Posts individual tweets for each new PS5 Pro enhanced game with game images
+   - **Telegram**: Sends a summary report with all changes and links to Twitter posts
 
 ### Title Mapping System
 

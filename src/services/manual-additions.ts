@@ -39,7 +39,9 @@ class ManualAdditionsManager {
 
       logger.info(`Loaded ${this.additions.length} manual game additions (v${data.version})`);
     } catch (error) {
-      logger.warn('Failed to load manual game additions, all Backloggd games will be compared normally');
+      logger.warn(
+        'Failed to load manual game additions, all Backloggd games will be compared normally'
+      );
       logger.error('Manual additions load error', error);
     }
   }
