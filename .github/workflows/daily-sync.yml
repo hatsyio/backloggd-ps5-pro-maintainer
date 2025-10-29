@@ -1,0 +1,54 @@
+name: Daily PS5 Pro Games Sync
+
+on:
+  schedule:
+    # Runs at 8:00 PM Spanish time (20:00 CEST/19:00 UTC in summer, 20:00 CET/19:00 UTC in winter)
+    # Peak gaming hours for Spanish Twitter audience
+    - cron: '0 19 * * *'
+
+  # Allow manual triggering for testing
+  workflow_dispatch:
+
+jobs:
+  sync-games:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run sync script
+        env:
+          PS_STORE_URL: ${{ secrets.PS_STORE_URL }}
+          BACKLOGGD_LIST_URL: ${{ secrets.BACKLOGGD_LIST_URL }}
+          HEADLESS_MODE: true
+          TELEGRAM_ENABLED: ${{ secrets.TELEGRAM_ENABLED }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TWITTER_ENABLED: ${{ secrets.TWITTER_ENABLED }}
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
+          NOTIFICATIONS_DRY_RUN: ${{ secrets.NOTIFICATIONS_DRY_RUN }}
+        run: npm start
+
+      - name: Upload debug artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-output-${{ github.run_number }}
+          path: debug/
+          retention-days: 7
