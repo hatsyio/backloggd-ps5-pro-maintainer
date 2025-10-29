@@ -29,7 +29,8 @@ class TelegramService {
    */
   async sendComparisonNotification(
     result: ComparisonResult,
-    dryRun: boolean = false
+    dryRun: boolean = false,
+    twitterResult?: NotificationResult
   ): Promise<NotificationResult> {
     if (!this.config.enabled) {
       logger.info('Telegram notifications disabled, skipping');
@@ -44,7 +45,7 @@ class TelegramService {
 
     try {
       const hasChanges = result.gamesToAdd.length > 0 || result.gamesToRemove.length > 0;
-      const message = this.formatComparisonMessage(result, hasChanges);
+      const message = this.formatComparisonMessage(result, hasChanges, twitterResult);
 
       if (dryRun) {
         logger.info('🔍 [DRY RUN] Would send Telegram message:');
@@ -72,16 +73,26 @@ class TelegramService {
   /**
    * Formats comparison result into a Markdown message
    */
-  private formatComparisonMessage(result: ComparisonResult, hasChanges: boolean): string {
+  private formatComparisonMessage(
+    result: ComparisonResult,
+    hasChanges: boolean,
+    twitterResult?: NotificationResult
+  ): string {
     const timestamp = new Date().toISOString();
 
     if (!hasChanges) {
-      return (
+      let message =
         `🎉 *PS5 Pro Enhanced Games - All Synced!*\n\n` +
         `✅ All ${result.alreadyInSync.length} games are perfectly synced\n` +
         `🕐 ${timestamp}\n\n` +
-        `No action required!`
-      );
+        `No action required!`;
+
+      // Add Twitter status even when no changes
+      if (twitterResult) {
+        message += this.formatTwitterStatus(twitterResult);
+      }
+
+      return message;
     }
 
     let message = `📊 *PS5 Pro Enhanced Games - Update Required*\n\n`;
@@ -112,9 +123,36 @@ class TelegramService {
     }
 
     message += `✓ Already in sync: ${result.alreadyInSync.length} games\n`;
+
+    // Add Twitter posting status
+    if (twitterResult) {
+      message += this.formatTwitterStatus(twitterResult);
+    }
+
     message += `\n⚠️ Action required: Update the Backloggd list`;
 
     return message;
+  }
+
+  /**
+   * Formats Twitter result status for inclusion in Telegram message
+   */
+  private formatTwitterStatus(twitterResult: NotificationResult): string {
+    let status = '\n\n🐦 *Twitter Status:*\n';
+
+    if (twitterResult.success) {
+      status += `✅ Successfully posted ${twitterResult.messagesSent} tweet(s)`;
+    } else {
+      status += `❌ Failed to post tweets\n`;
+      if (twitterResult.error) {
+        status += `Error: ${twitterResult.error}`;
+      }
+      if (twitterResult.messagesSent && twitterResult.messagesSent > 0) {
+        status += `\n⚠️ Partial success: ${twitterResult.messagesSent} tweet(s) posted`;
+      }
+    }
+
+    return status;
   }
 }
 

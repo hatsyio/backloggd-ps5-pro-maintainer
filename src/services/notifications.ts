@@ -28,11 +28,32 @@ class NotificationManager {
     const results: NotificationResult[] = [];
     const hasChanges = result.gamesToAdd.length > 0 || result.gamesToRemove.length > 0;
 
-    // Send Telegram notification (always send, whether changes or not)
+    // Send Twitter posts FIRST (only if there are games to add)
+    let twitterResult: NotificationResult | undefined;
+    if (hasChanges && result.gamesToAdd.length > 0) {
+      try {
+        twitterResult = await this.twitter.postNewGameTweets(result.gamesToAdd, this.config.dryRun);
+        results.push(twitterResult);
+      } catch (error) {
+        logger.error('Twitter notification failed', error);
+        twitterResult = {
+          service: 'twitter',
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+        results.push(twitterResult);
+      }
+    } else if (result.gamesToAdd.length === 0) {
+      logger.info('No new games to announce on Twitter');
+    }
+
+    // Send Telegram notification SECOND (always send, whether changes or not)
+    // Pass the Twitter result to include in the Telegram message
     try {
       const telegramResult = await this.telegram.sendComparisonNotification(
         result,
-        this.config.dryRun
+        this.config.dryRun,
+        twitterResult
       );
       results.push(telegramResult);
     } catch (error) {
@@ -42,26 +63,6 @@ class NotificationManager {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
-    }
-
-    // Send Twitter posts (only if there are games to add)
-    if (hasChanges && result.gamesToAdd.length > 0) {
-      try {
-        const twitterResult = await this.twitter.postNewGameTweets(
-          result.gamesToAdd,
-          this.config.dryRun
-        );
-        results.push(twitterResult);
-      } catch (error) {
-        logger.error('Twitter notification failed', error);
-        results.push({
-          service: 'twitter',
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
-    } else if (result.gamesToAdd.length === 0) {
-      logger.info('No new games to announce on Twitter');
     }
 
     // Log summary
