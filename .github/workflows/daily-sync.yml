@@ -29,6 +29,9 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
+      - name: Build TypeScript
+        run: npm run build
+
       - name: Run sync script
         env:
           PS_STORE_URL: ${{ secrets.PS_STORE_URL }}
