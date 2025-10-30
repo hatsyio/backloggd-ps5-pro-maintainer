@@ -129,7 +129,7 @@ class TwitterService {
    * Formats a game into a tweet (max 280 characters)
    */
   private formatGameTweet(game: Game): string {
-    const baseText = `🎮 New PS5 Pro Enhanced Game: ${game.title}`;
+    const baseText = `🎮 New PS5 Pro Enhanced Game!\n${game.title}`;
     const hashtags = '#PS5Pro #PlayStation #Gaming';
 
     // Calculate if we have space for URL
