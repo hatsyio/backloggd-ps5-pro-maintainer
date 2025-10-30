@@ -25,8 +25,8 @@ export async function scrapeBackloggdList(): Promise<ScraperResult> {
 
     logger.info('Navigating to Backloggd list...');
     await page.goto(process.env.BACKLOGGD_LIST_URL!, {
-      waitUntil: 'networkidle',
-      timeout: 60000,
+      waitUntil: 'domcontentloaded', // Changed from 'networkidle' for faster loading
+      timeout: 30000, // Reduced timeout
     });
 
     // Wait for list to load - Backloggd uses game-cover class for game tiles
@@ -34,6 +34,12 @@ export async function scrapeBackloggdList(): Promise<ScraperResult> {
 
     // Extract total count from pagination text
     const totalGames = await extractTotalCount(page);
+
+    // Calculate total pages needed (Backloggd shows ~24 games per page)
+    const gamesPerPage = 24;
+    const estimatedPages = totalGames !== Infinity ? Math.ceil(totalGames / gamesPerPage) : 50;
+
+    logger.info(`Total games: ${totalGames}, estimated pages: ${estimatedPages}`);
 
     // Initialize collection
     const allGames: Game[] = [];
@@ -85,11 +91,19 @@ export async function scrapeBackloggdList(): Promise<ScraperResult> {
         break;
       }
 
+      // Check if we've reached estimated pages
+      if (currentPage >= estimatedPages) {
+        logger.info('Reached estimated page limit');
+        hasNextPage = false;
+        break;
+      }
+
       // Navigate to next page
       hasNextPage = await navigateToNextPage(page, paginationStrategy, currentPage);
 
       if (hasNextPage) {
-        await page.waitForTimeout(2000); // Rate limiting
+        // Reduced wait time from 2000ms to 500ms
+        await page.waitForSelector('.game-cover', { timeout: 5000 });
         currentPage++;
       }
 

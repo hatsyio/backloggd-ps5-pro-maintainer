@@ -25,7 +25,7 @@ import { extractTotalCount, detectPaginationType, navigateToNextPage } from './p
 export async function scrapePlayStationStore(): Promise<ScraperResult> {
   const browser: Browser = await chromium.launch({
     headless: process.env.HEADLESS_MODE !== 'false',
-    slowMo: 100, // Prevents aggressive scraping detection
+    // Removed slowMo to speed up scraping
   });
 
   try {
@@ -39,43 +39,43 @@ export async function scrapePlayStationStore(): Promise<ScraperResult> {
     logger.info('Navigating to PlayStation Store...');
     await page.goto(process.env.PS_STORE_URL!, {
       waitUntil: 'domcontentloaded',
-      timeout: 90000,
+      timeout: 30000, // Reduced from 90s
     });
-
-    // Wait a bit for dynamic content to load
-    await page.waitForTimeout(3000);
 
     // Handle cookie consent if present
     try {
       const cookieButton = await page.waitForSelector('button[data-qa="accept-cookies"]', {
-        timeout: 5000,
+        timeout: 3000, // Reduced from 5s
       });
       if (cookieButton) {
         await cookieButton.click();
-        await page.waitForTimeout(1000);
+        await page.waitForLoadState('domcontentloaded');
       }
     } catch {
       // Cookie button not found, continue
       logger.info('No cookie consent dialog found');
     }
 
-    // Take a screenshot for debugging
-    await page.screenshot({ path: 'debug/ps-store-debug.png', fullPage: true });
+    // Take a screenshot for debugging (non-blocking)
+    page.screenshot({ path: 'debug/ps-store-debug.png', fullPage: true }).catch(() => {});
     logger.info('Screenshot saved to debug/ps-store-debug.png');
 
-    // Wait for page content to load - try multiple selectors
+    // Wait for essential content to load with aggressive timeout
     try {
-      await page.waitForSelector('[data-qa^="search#product"]', {
-        timeout: 10000,
-      });
+      await page.waitForSelector('a[href*="/concept/"]', { timeout: 10000 });
+      logger.info('Products loaded successfully');
     } catch {
-      logger.warn('Could not find search product selector, trying alternative...');
-      // Try waiting for any product tiles
-      await page.waitForTimeout(5000);
+      logger.warn('Product selector timeout - attempting to continue anyway');
     }
 
     // Extract total count from pagination text
     const totalGames = await extractTotalCount(page);
+
+    // Calculate total pages needed (PS Store shows 24 games per page)
+    const gamesPerPage = 24;
+    const estimatedPages = totalGames !== Infinity ? Math.ceil(totalGames / gamesPerPage) : 50;
+
+    logger.info(`Total games: ${totalGames}, estimated pages: ${estimatedPages}`);
 
     // Initialize collection
     const allGames: Game[] = [];
@@ -158,11 +158,19 @@ export async function scrapePlayStationStore(): Promise<ScraperResult> {
         break;
       }
 
+      // Check if we've reached estimated pages
+      if (currentPage >= estimatedPages) {
+        logger.info('Reached estimated page limit');
+        hasNextPage = false;
+        break;
+      }
+
       // Navigate to next page
       hasNextPage = await navigateToNextPage(page, paginationStrategy, currentPage);
 
       if (hasNextPage) {
-        await page.waitForTimeout(2000); // Rate limiting
+        // Wait for products to load on new page
+        await page.waitForSelector('a[href*="/concept/"]', { timeout: 5000 });
         currentPage++;
       }
 

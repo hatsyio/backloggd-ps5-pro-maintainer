@@ -10,12 +10,13 @@ import { logger } from '../services/logger';
 
 /**
  * Extracts total game count from pagination text
- * Examples: "Mostrando 24 de 195 resultados", "Showing 24 of 195"
+ * Examples: "Mostrando 24 de 195 resultados", "Showing 24 of 195", "199 Games"
  */
 export async function extractTotalCount(page: Page): Promise<number> {
   // Try multiple selectors as pagination text can be in different elements
   const possibleSelectors = [
-    'text=/mostrando.*de.*resultados/i', // Spanish
+    'text=/mostrando.*de.*resultados/i', // Spanish (PS Store) - try first
+    'text=/\\d+\\s+games/i', // Backloggd: "199 Games"
     'text=/showing.*of.*results/i', // English
     '[data-qa*="results"]', // Data attribute
     '.pagination-info', // Class-based
@@ -23,8 +24,9 @@ export async function extractTotalCount(page: Page): Promise<number> {
 
   for (const selector of possibleSelectors) {
     try {
-      const element = await page.locator(selector).first();
-      const text = await element.textContent();
+      // Use faster approach with shorter timeout per selector
+      const element = page.locator(selector).first();
+      const text = await element.textContent({ timeout: 3000 });
 
       if (text) {
         // Extract numbers: "Mostrando 24 de 195 resultados" -> [24, 195]
@@ -32,6 +34,14 @@ export async function extractTotalCount(page: Page): Promise<number> {
         const match = regex.exec(text);
         if (match) {
           const totalGames = Number.parseInt(match[2], 10);
+          logger.info(`Found total games: ${totalGames} from text: "${text.trim()}"`);
+          return totalGames;
+        }
+
+        // Try to match simple count pattern: "199 Games"
+        const simpleMatch = /(\d+)\s+games/i.exec(text);
+        if (simpleMatch) {
+          const totalGames = Number.parseInt(simpleMatch[1], 10);
           logger.info(`Found total games: ${totalGames} from text: "${text.trim()}"`);
           return totalGames;
         }
@@ -175,9 +185,6 @@ export async function navigateToNextPage(
         waitUntil: 'domcontentloaded',
         timeout: 30000,
       });
-
-      // Wait for content to load
-      await page.waitForTimeout(2000);
 
       logger.info(`Navigated to next page via URL: ${nextUrl}`);
       return true;
